@@ -8,7 +8,16 @@ from tensorflow.keras.models import load_model
 import numpy as np
 import argparse
 import cv2
-import os
+import os, sys, json
+
+def record_face(startX, startY, endX, endY, label, ):
+    print(json.dumps({
+      'startX': int(startX),
+      'startY': int(startY),
+      'endX': int(endX),
+      'endY': int(endY),
+      'label': str(label),
+    }))
 
 def mask_image():
 	# construct the argument parser and parse the arguments
@@ -96,8 +105,11 @@ def mask_image():
 			cv2.putText(image, label, (startX, startY - 10),
 				cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
 			cv2.rectangle(image, (startX, startY), (endX, endY), color, 2)
+			record_face(startX, startY, endX, endY, label)
 
 	# show the output image
+    
+	sys.exit()
 	cv2.imshow("Output", image)
 	cv2.waitKey(0)
 	
