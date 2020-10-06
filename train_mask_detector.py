@@ -38,7 +38,7 @@ args = vars(ap.parse_args())
 # initialize the initial learning rate, number of epochs to train for,
 # and batch size
 INIT_LR = 1e-4
-EPOCHS = 20
+EPOCHS = 1
 BS = 32
 
 # grab the list of images in our dataset directory, then initialize
@@ -149,8 +149,16 @@ print('H history keys = {}'.format(dict(H.history).keys()))
 
 plt.plot(np.arange(0, N), H.history["loss"], label="train_loss")
 plt.plot(np.arange(0, N), H.history["val_loss"], label="val_loss")
-plt.plot(np.arange(0, N), H.history["acc"], label="train_acc")
-plt.plot(np.arange(0, N), H.history["val_acc"], label="val_acc")
+if 'accuracy' in dict(H.history).keys():
+  plt.plot(np.arange(0, N), H.history["accuracy"], label="train_acc")
+else:
+  plt.plot(np.arange(0, N), H.history["acc"], label="train_acc")
+
+if 'val_accuracy' in dict(H.history).keys():
+  plt.plot(np.arange(0, N), H.history["val_accuracy"], label="val_acc")
+else:
+  plt.plot(np.arange(0, N), H.history["val_acc"], label="val_acc")
+
 plt.title("Training Loss and Accuracy")
 plt.xlabel("Epoch #")
 plt.ylabel("Loss/Accuracy")
