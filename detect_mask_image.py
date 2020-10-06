@@ -108,8 +108,10 @@ def mask_image():
 			record_face(startX, startY, endX, endY, label)
 
 	# show the output image
-    
-	sys.exit()
+	#print(image)
+	filename = 'processed_image.jpg'
+	cv2.imwrite(filename, image)
+	#sys.exit()
 	cv2.imshow("Output", image)
 	cv2.waitKey(0)
 	
