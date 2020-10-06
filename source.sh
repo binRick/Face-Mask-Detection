@@ -1,0 +1,2 @@
+
+source ./.v/bin/activate
