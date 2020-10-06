@@ -106,7 +106,13 @@ def mask_image():
 
                         confidence = "{:.2f}".format(max(mask, withoutMask) * 100)
                         mask_detected = (True if mask > withoutMask else False)
-                        dst_image = 'xxxxxxxxxx'
+                        dst_image = '{}_{}_{}'.format(
+                            args["image"],
+                            'face',
+                            i+1,
+                        )
+                        clone = image.copy()
+#                        crop_img = clone[startX:startY,ref_point[0][1]:ref_point[1][1], ref_point[0][0]:ref_point[1][0]]
                         record_face(startX, startY, endX, endY, confidence, mask_detected, args["image"], dst_image)
 
                         # display the label and bounding box rectangle on the output
