@@ -1,0 +1,6 @@
+create video:
+  ffmpeg -f avfoundation -framerate 30.000030 -i default with_mask.mp4
+
+
+create images from video:
+  ffmpeg -i with_mask.mp4 -r 1 video_images/mask/output_%05d.png
