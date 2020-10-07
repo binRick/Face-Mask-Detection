@@ -9,10 +9,16 @@ from tensorflow.keras.models import load_model
 import numpy as np
 import argparse
 import cv2
-import os, sys, json
+import os, sys, json, pathlib
 
 
-NO_MASK_DIR = 'no_mask'
+NO_MASK_DIR = 'results/no_mask'
+MASK_DIR = 'results/mask'
+
+for d in [NO_MASK_DIR, MASK_DIR]:
+  if not os.path.exists(d):
+    pathlib.Path(d).mkdir(parents=True)
+
 
 def record_face(startX, startY, endX, endY, confidence, mask_detected, src_image, dst_image):
     print(json.dumps({
@@ -110,8 +116,10 @@ def mask_image():
                         confidence = "{:.2f}".format(max(mask, withoutMask) * 100)
                         mask_detected = (True if mask > withoutMask else False)
                         img_extension = args["image"].split('.')[-1]
-                        dst_image = '{}_{}_{}.{}'.format(
-                            args["image"],
+                        RESULTS_DIR = MASK_DIR if mask > withoutMask else NO_MASK_DIR
+                        dst_image = '{}/{}_{}_{}.{}'.format(
+                            RESULTS_DIR,
+                            os.path.basename(args["image"]).replace('.{}'.format(img_extension),''),
                             'face',
                             i+1,
                             img_extension,
@@ -120,8 +128,9 @@ def mask_image():
                         cv2.putText(clone, label, (startX, startY - 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
                         cv2.rectangle(clone, (startX, startY), (endX, endY), color, 2)
-                        cv2.imwrite(dst_image, clone)
-#                        crop_img = clone[startX:startY,ref_point[0][1]:ref_point[1][1], ref_point[0][0]:ref_point[1][0]]
+                        cropped_img = clone[startY:endY, startX:endX]
+#                        cv2.imwrite(dst_image, clone)
+                        cv2.imwrite(dst_image, cropped_img)
                         record_face(startX, startY, endX, endY, confidence, mask_detected, args["image"], dst_image)
 
                         # display the label and bounding box rectangle on the output
