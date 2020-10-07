@@ -11,6 +11,9 @@ import argparse
 import cv2
 import os, sys, json
 
+
+NO_MASK_DIR = 'no_mask'
+
 def record_face(startX, startY, endX, endY, confidence, mask_detected, src_image, dst_image):
     print(json.dumps({
       'startX': int(startX),
