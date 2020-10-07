@@ -106,12 +106,18 @@ def mask_image():
 
                         confidence = "{:.2f}".format(max(mask, withoutMask) * 100)
                         mask_detected = (True if mask > withoutMask else False)
-                        dst_image = '{}_{}_{}'.format(
+                        img_extension = args["image"].split('.')[-1]
+                        dst_image = '{}_{}_{}.{}'.format(
                             args["image"],
                             'face',
                             i+1,
+                            img_extension,
                         )
                         clone = image.copy()
+                        cv2.putText(clone, label, (startX, startY - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
+                        cv2.rectangle(clone, (startX, startY), (endX, endY), color, 2)
+                        cv2.imwrite(dst_image, clone)
 #                        crop_img = clone[startX:startY,ref_point[0][1]:ref_point[1][1], ref_point[0][0]:ref_point[1][0]]
                         record_face(startX, startY, endX, endY, confidence, mask_detected, args["image"], dst_image)
 
