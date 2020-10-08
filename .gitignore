@@ -4,3 +4,6 @@ venv
 plot.png
 no_mask
 results
+.DS_Store
+videos
+video_images
