@@ -45,7 +45,7 @@ def mask_image():
         ap.add_argument("-m", "--model", type=str,
                 default="mask_detector.model",
                 help="path to trained face mask detector model")
-        ap.add_argument("-c", "--confidence", type=float, default=0.5,
+        ap.add_argument("-c", "--confidence", type=float, default=0.9,
                 help="minimum probability to filter weak detections")
         args = vars(ap.parse_args())
 
@@ -99,7 +99,6 @@ def mask_image():
 
                     # filter out weak detections by ensuring the confidence is
                     # greater than the minimum confidence
-                    print(f'comparing {confidence} > {args["confidence"]}')
                     if confidence > args["confidence"]:
                             # compute the (x, y)-coordinates of the bounding box for
                             # the object
