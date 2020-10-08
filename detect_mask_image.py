@@ -69,6 +69,7 @@ def mask_image():
 
         ##  for each image:
         print(f'IMAGES={IMAGES}')
+        #args["confidence"] = args["confidence"] / 100
         for img in IMAGES:
             if not os.path.exists(img):
               continue
@@ -98,6 +99,7 @@ def mask_image():
 
                     # filter out weak detections by ensuring the confidence is
                     # greater than the minimum confidence
+                    print(f'comparing {confidence} > {args["confidence"]}')
                     if confidence > args["confidence"]:
                             # compute the (x, y)-coordinates of the bounding box for
                             # the object

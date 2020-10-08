@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -e
 source source.sh
-#args="--confidence 90"
-args=""
-#cmd="./detect_mask_image.py $args $@"
+args="--confidence 90"
 cmd="./detect_mask_image.py $args $@ 2>/dev/null"
 eval $cmd
