@@ -35,8 +35,10 @@ def record_face(startX, startY, endX, endY, confidence, mask_detected, src_image
 def mask_image():
         # construct the argument parser and parse the arguments
         ap = argparse.ArgumentParser()
-        ap.add_argument("-i", "--image", required=True,
+        ap.add_argument("-i", "--image", required=False,
                 help="path to input image")
+        ap.add_argument("-I", "--images", required=False,
+                help="input images seperated by commas")
         ap.add_argument("-f", "--face", type=str,
                 default="face_detector",
                 help="path to face detector model directory")
@@ -46,6 +48,12 @@ def mask_image():
         ap.add_argument("-c", "--confidence", type=float, default=0.5,
                 help="minimum probability to filter weak detections")
         args = vars(ap.parse_args())
+
+        if args["images"]:
+          print(f'handling images')
+          IMAGES = args["images"]
+        else:
+          IMAGES = [args["image"]]
 
         # load our serialized face detector model from disk
         print("[INFO] loading face detector model...")
@@ -57,6 +65,9 @@ def mask_image():
         # load the face mask detector model from disk
         print("[INFO] loading face mask detector model...")
         model = load_model(args["model"])
+
+
+        ##  for each image:
 
         # load the input image from disk, clone it, and grab the image spatial
         # dimensions
