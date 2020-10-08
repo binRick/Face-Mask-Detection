@@ -70,6 +70,8 @@ def mask_image():
         ##  for each image:
         print(f'IMAGES={IMAGES}')
         for img in IMAGES:
+            if not os.path.exists(img):
+              continue
             args["image"] = img
             print(f'img={img}')
             image = cv2.imread(img)

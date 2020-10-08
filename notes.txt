@@ -4,3 +4,10 @@ create video:
 
 create images from video:
   ffmpeg -i with_mask.mp4 -r 1 video_images/mask/output_%05d.png
+
+
+
+
+
+youtube-dl https://www.youtube.com/watch\?v\=P79QowuN5X8 -o videos/$NAME.mp4
+mkdir video_images/$NAME; time ffmpeg -i  videos/$NAME.mp4 -r 1 video_images/$NAME/${NAME}_%05d.png
