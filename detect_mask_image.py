@@ -142,14 +142,14 @@ def mask_image():
                                 img_extension,
                             )
                             clone = image.copy()
-                            cv2.putText(clone, label, (startX, startY - 10),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
-                            cv2.rectangle(clone, (startX, startY), (endX, endY), color, 2)
                             cropped_img = clone[startY:endY, startX:endX]
     #                        cv2.imwrite(dst_image, clone)
                             cv2.imwrite(dst_image, cropped_img)
                             record_face(startX, startY, endX, endY, confidence, mask_detected, img, dst_image)
 
+                            cv2.putText(clone, label, (startX, startY - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
+                            cv2.rectangle(clone, (startX, startY), (endX, endY), color, 2)
                             # display the label and bounding box rectangle on the output
                             # frame
                             cv2.putText(image, label, (startX, startY - 10),
@@ -158,8 +158,8 @@ def mask_image():
 
         # show the output image
         #print(image)
-        filename = 'processed_image.jpg'
-        cv2.imwrite(filename, image)
+        #filename = 'processed_image.jpg'
+        #cv2.imwrite(filename, image)
         sys.exit(0)
         #cv2.imshow("Output", image)
         #cv2.waitKey(0)
