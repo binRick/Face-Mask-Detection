@@ -45,7 +45,7 @@ def mask_image():
         ap.add_argument("-m", "--model", type=str,
                 default="mask_detector.model",
                 help="path to trained face mask detector model")
-        ap.add_argument("-c", "--confidence", type=float, default=0.9,
+        ap.add_argument("-c", "--confidence", type=float, default=0.5,
                 help="minimum probability to filter weak detections")
         args = vars(ap.parse_args())
 
@@ -68,13 +68,13 @@ def mask_image():
 
 
         ##  for each image:
-        print(f'IMAGES={IMAGES}')
+        #print(f'IMAGES={IMAGES}')
         #args["confidence"] = args["confidence"] / 100
         for img in IMAGES:
             if not os.path.exists(img):
               continue
             args["image"] = img
-            print(f'img={img}')
+            #print(f'img={img}')
             image = cv2.imread(img)
             # load the input image from disk, clone it, and grab the image spatial
             # dimensions
@@ -87,7 +87,7 @@ def mask_image():
                     (104.0, 177.0, 123.0))
 
             # pass the blob through the network and obtain the face detections
-            print("[INFO] computing face detections...")
+            print(f"[INFO] computing face detections :: {img}...")
             net.setInput(blob)
             detections = net.forward()
 
