@@ -6,22 +6,27 @@
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
+from imgcat import imgcat
 import numpy as np
 import argparse
 import cv2
-import os, sys, json, pathlib
+import os, sys, json, pathlib, time
 
 
 NO_MASK_DIR = 'results/no_mask'
 MASK_DIR = 'results/mask'
+OUTPUT_MODE = 'simple'
 
 for d in [NO_MASK_DIR, MASK_DIR]:
   if not os.path.exists(d):
     pathlib.Path(d).mkdir(parents=True)
 
 
-def record_face(startX, startY, endX, endY, confidence, mask_detected, src_image, dst_image):
-    print(json.dumps({
+def record_face(startX, startY, endX, endY, confidence, mask_detected, src_image, dst_image, dur_ms):
+    if OUTPUT_MODE == 'simple':
+     print(f'Mask: {bool(mask_detected)} ({str(confidence)}%)')
+    else:
+     print(json.dumps({
       'startX': int(startX),
       'startY': int(startY),
       'endX': int(endX),
@@ -30,7 +35,8 @@ def record_face(startX, startY, endX, endY, confidence, mask_detected, src_image
       'dst_image': str(dst_image),
       'confidence_percent': str(confidence),
       'mask_detected': bool(mask_detected),
-    }))
+      'dur_ms': int(dur_ms),
+     }))
 
 def mask_image():
         # construct the argument parser and parse the arguments
@@ -50,7 +56,6 @@ def mask_image():
         args = vars(ap.parse_args())
 
         if args["images"]:
-          print(f'handling images')
           IMAGES = args["images"].split(',')
         else:
           IMAGES = [args["image"]]
@@ -73,6 +78,7 @@ def mask_image():
         for img in IMAGES:
             if not os.path.exists(img):
               continue
+            start_ms = int(time.time())
             args["image"] = img
             #print(f'img={img}')
             image = cv2.imread(img)
@@ -87,7 +93,7 @@ def mask_image():
                     (104.0, 177.0, 123.0))
 
             # pass the blob through the network and obtain the face detections
-            print(f"[INFO] computing face detections :: {img}...")
+            #print(f"[INFO] computing face detections :: {img}...")
             net.setInput(blob)
             detections = net.forward()
 
@@ -133,6 +139,7 @@ def mask_image():
 
                             confidence = "{:.2f}".format(max(mask, withoutMask) * 100)
                             mask_detected = (True if mask > withoutMask else False)
+                            dur_ms = int(time.time()) - start_ms
                             img_extension = img.split('.')[-1]
                             RESULTS_DIR = MASK_DIR if mask > withoutMask else NO_MASK_DIR
                             dst_image = '{}/{}_{}_{}.{}'.format(
@@ -146,7 +153,8 @@ def mask_image():
                             cropped_img = clone[startY:endY, startX:endX]
     #                        cv2.imwrite(dst_image, clone)
                             cv2.imwrite(dst_image, cropped_img)
-                            record_face(startX, startY, endX, endY, confidence, mask_detected, img, dst_image)
+                            imgcat(open(dst_image))
+                            record_face(startX, startY, endX, endY, confidence, mask_detected, img, dst_image, dur_ms)
 
                             cv2.putText(clone, label, (startX, startY - 10),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
