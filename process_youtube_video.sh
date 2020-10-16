@@ -18,6 +18,9 @@ cmd="youtube-dl -o $VIDEO_FILE '$VIDEO_URL'"
 
 [[ -f "$VIDEO_FILE" ]] || eval $cmd
 
+[[ ! -f $VIDEO_FILE && -f "$VIDEO_FILE.webm" ]] && VIDEO_FILE="$VIDEO_FILE.webm"
+[[ ! -f $VIDEO_FILE && -f "$VIDEO_FILE.mp4" ]] && VIDEO_FILE="$VIDEO_FILE.mp4"
+
 [[ -d $VIDEO_IMAGES_DIR ]] && rm -f $VIDEO_IMAGES_DIR/${VIDEO_NAME}_*.png
 [[ -d $VIDEO_IMAGES_DIR ]] || mkdir -p $VIDEO_IMAGES_DIR
 
