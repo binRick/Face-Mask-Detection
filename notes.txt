@@ -16,3 +16,6 @@ download video:
 videos:
   friendly nurse lady: https://www.youtube.com/watch?v=2TTg53aAP8Q
 
+create collage:
+  python collage_maker.py -o t1.png -f ../results/no_mask -w 800 -i 250  
+

@@ -6,11 +6,10 @@
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
-from imgcat import imgcat
 import numpy as np
 import argparse
 import cv2
-import os, sys, json, pathlib, time
+import os, sys, json, pathlib, time, imgcat
 
 
 NO_MASK_DIR = 'results/no_mask'
@@ -141,7 +140,9 @@ def mask_image():
                             confidence = "{:.2f}".format(max(mask, withoutMask) * 100)
                             mask_detected = (True if mask > withoutMask else False)
                             dur_ms = int(time.time()) - start_ms
+
                             img_extension = img.split('.')[-1]
+
                             RESULTS_DIR = MASK_DIR if mask > withoutMask else NO_MASK_DIR
                             dst_image = '{}/{}_{}_{}.{}'.format(
                                 RESULTS_DIR,
@@ -150,12 +151,16 @@ def mask_image():
                                 i+1,
                                 img_extension,
                             )
+
+                            ## External Handler
+                            record_face(startX, startY, endX, endY, confidence, mask_detected, img, dst_image, dur_ms)
+
                             clone = image.copy()
                             cropped_img = clone[startY:endY, startX:endX]
-    #                        cv2.imwrite(dst_image, clone)
                             cv2.imwrite(dst_image, cropped_img)
-                            imgcat(open(dst_image))
-                            record_face(startX, startY, endX, endY, confidence, mask_detected, img, dst_image, dur_ms)
+                            imgcat.imgcat(open(dst_image))
+
+                            ## Add outline to face on source image
                             if MANGLE_SOURCE_IMAGE:
                                 cv2.putText(clone, label, (startX, startY - 10),
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
