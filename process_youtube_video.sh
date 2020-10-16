@@ -37,11 +37,13 @@ cmd="youtube-dl -o $VIDEO_FILE '$VIDEO_URL'"
 
 [[ ! -f $VIDEO_FILE && -f "$VIDEO_FILE.webm" ]] && VIDEO_FILE="$VIDEO_FILE.webm"
 [[ ! -f $VIDEO_FILE && -f "$VIDEO_FILE.mp4" ]] && VIDEO_FILE="$VIDEO_FILE.mp4"
+[[ ! -f $VIDEO_FILE && -f "$VIDEO_FILE.mkv" ]] && VIDEO_FILE="$VIDEO_FILE.mkv"
 
 [[ -f "$VIDEO_FILE" ]] || eval $cmd
 
 [[ ! -f $VIDEO_FILE && -f "$VIDEO_FILE.webm" ]] && VIDEO_FILE="$VIDEO_FILE.webm"
 [[ ! -f $VIDEO_FILE && -f "$VIDEO_FILE.mp4" ]] && VIDEO_FILE="$VIDEO_FILE.mp4"
+[[ ! -f $VIDEO_FILE && -f "$VIDEO_FILE.mkv" ]] && VIDEO_FILE="$VIDEO_FILE.mkv"
 
 MSG="Video duration is $(get_video_duration_seconds $VIDEO_FILE) seconds and we have $(get_video_images_qty) images."
 echo -e $MSG

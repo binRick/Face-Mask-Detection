@@ -15,6 +15,9 @@ download video:
 
 videos:
   friendly nurse lady: https://www.youtube.com/watch?v=2TTg53aAP8Q
+  nice man: https://www.youtube.com/watch?v=l2TmDY3_Vx8
+  how to wear a mask: https://www.youtube.com/watch?v=adB8RW4I3o4
+  japanese masks: https://www.youtube.com/watch?v=_XTnotvAs3M
 
 create collage:
   python collage_maker.py -o t1.png -f ../results/no_mask -w 800 -i 250  
