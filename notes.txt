@@ -6,8 +6,9 @@ create images from video:
   ffmpeg -i with_mask.mp4 -r 1 video_images/mask/output_%05d.png
 
 
+create video from images:
+   export NAME=doctor; ffmpeg -r 1 -start_number 0  -i results/no_mask/${NAME}_%05d_face_1.png -c:v libx264 -r 30 -pix_fmt yuv420p test_vid1.mp4
 
 
-
-youtube-dl https://www.youtube.com/watch\?v\=P79QowuN5X8 -o videos/$NAME.mp4
-mkdir video_images/$NAME; time ffmpeg -i  videos/$NAME.mp4 -r 1 video_images/$NAME/${NAME}_%05d.png
+download video:
+    youtube-dl https://www.youtube.com/watch\?v\=P79QowuN5X8 -o videos/$NAME.mp4
