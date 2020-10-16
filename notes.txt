@@ -12,3 +12,7 @@ create video from images:
 
 download video:
     youtube-dl https://www.youtube.com/watch\?v\=P79QowuN5X8 -o videos/$NAME.mp4
+
+videos:
+  friendly nurse lady: https://www.youtube.com/watch?v=2TTg53aAP8Q
+
