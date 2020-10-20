@@ -112,13 +112,13 @@ print(f"  OK")
 
 # loop over the frames from the video stream
 while True:
-    print("Waiting for frame..")
+    #print("Waiting for frame..")
     # grab the frame from the threaded video stream and resize it
     # to have a maximum width of 400 pixels
     frame = vs.read()
-    print(f" read {len(str(frame))} bytes")
+    #print(f" read {len(str(frame))} bytes")
     frame = imutils.resize(frame, width=400)
-    print(f" resized to {len(str(frame))} bytes")
+    #print(f" resized to {len(str(frame))} bytes")
 
     # detect faces in the frame and determine if they are wearing a
     # face mask or not

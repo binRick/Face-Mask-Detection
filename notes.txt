@@ -27,3 +27,6 @@ play stream:
 
 create stream:
   ffmpeg -re -stream_loop -1 -i $V -f rtsp -rtsp_transport tcp 'rtsp://127.0.0.1:8888/live.sdp?tcp'
+
+vlc watch stream:
+  /Applications/VLC.app/Contents/MacOS/VLC rtsp://127.0.0.1:8554/mystream
