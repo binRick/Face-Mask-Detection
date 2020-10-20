@@ -10,3 +10,4 @@ scikit-learn==0.23.1
 pillow==7.2.0
 streamlit
 imgcat==0.5.0
+j2cli==0.3.10

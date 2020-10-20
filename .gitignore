@@ -11,3 +11,4 @@ video_images
 rtsp-simple-server
 rtsp-simple-server_v0.10.1_darwin_amd64.tar.gz
 .tmp
+*.pyc
