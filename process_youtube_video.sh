@@ -6,7 +6,7 @@ export PATH="$(pwd)/bin:$PATH"
 FRAME_RATE="1"
 VIDEO_NAME="$1"
 VIDEO_URL="$2"
-VIDEO_FILE="videos/$VIDEO_NAME.mkv"
+VIDEO_FILE="videos/$VIDEO_NAME"
 VIDEO_IMAGES_DIR="video_images/$VIDEO_NAME"
 
 get_video_images(){

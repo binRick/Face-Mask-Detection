@@ -4,5 +4,9 @@ source source.sh
 export PATH="$(pwd)/bin:$PATH"
 
 args=""
-cmd="./detect_mask_video.py $args $@ 2>/dev/null"
+e="$(mktemp)"
+cmd="./detect_mask_video.py $args $@"
 eval $cmd
+ec=$?
+[[ "$ec" != "0" ]] && cat "$e"
+[[ -f "$e" ]] && unlink "$e"

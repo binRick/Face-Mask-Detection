@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 # import the necessary packages
+import os, sys, json, pathlib, time
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
@@ -8,6 +9,9 @@ from imutils.video import VideoStream
 import numpy as np
 import argparse, imutils, time, cv2, os, sys, json
 DEFAULT_RTSP = f"rtsp://127.0.0.1:8554/mystream"
+SHOW_OUTPUT_FRAMES = True
+SAVE_OUTPUT_FRAMES = False
+SAVE_OUTPUT_FRAMES_DIR = './output_frames'
 
 def detect_and_predict_mask(frame, faceNet, maskNet):
     # grab the dimensions of the frame and then construct a blob
@@ -145,8 +149,20 @@ while True:
             cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
         cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
 
-    # show the output frame
-    cv2.imshow("Frame", frame)
+    if SAVE_OUTPUT_FRAMES:
+        save_path = '{}/{}.png'.format(
+          SAVE_OUTPUT_FRAMES_DIR,
+          str(int(time.time()*1000)),
+        )
+        if not os.path.exists(os.path.dirname(save_path)):
+          pathlib.Path(os.path.dirname(save_path)).mkdir(parents=True)
+
+        print(f'saving to {save_path}')
+        cv2.imwrite(save_path, frame)
+
+    if SHOW_OUTPUT_FRAMES:
+        cv2.imshow("Frame", frame)
+
     key = cv2.waitKey(1) & 0xFF
 
     # if the `q` key was pressed, break from the loop
