@@ -1,4 +1,3 @@
-
 # supported stream protocols (the handshake is always performed with TCP)
 protocols: [udp, tcp]
 # port of the TCP RTSP listener
@@ -30,6 +29,12 @@ logDestinations: [stdout]
 # if 'file' is in logDestinations, this is the file that will receive the logs
 logFile: rtsp-simple-server.log
 
+
+
+
+
+
+
 # these settings are path-dependent.
 # It's possible to use regular expressions by using a tilde as prefix.
 # for instance, '~^(test1|test2)$' will match both 'test1' and 'test2'.
@@ -59,7 +64,7 @@ paths:
     # This can be used, for example, to publish a stream on demand.
     # This is terminated with SIGINT when the path is not requested anymore.
     # The path name is available in the RTSP_SERVER_PATH variable
-    runOnDemand:
+    runOnDemand: echo run on demmand
 
     # command to run when a client starts publishing.
     # This is terminated with SIGINT when a client stops publishing.
