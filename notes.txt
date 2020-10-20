@@ -30,3 +30,6 @@ create stream:
 
 vlc watch stream:
   /Applications/VLC.app/Contents/MacOS/VLC rtsp://127.0.0.1:8554/mystream
+
+stream to rtsp server:
+  youtube-dl -o - "https://www.youtube.com/watch?v=2TTg53aAP8Q" | ffmpeg -re -stream_loop -1 -i - -c copy -f rtsp rtsp://127.0.0.1:8554/fn

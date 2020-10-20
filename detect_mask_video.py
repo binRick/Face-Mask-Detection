@@ -7,7 +7,7 @@ from tensorflow.keras.models import load_model
 from imutils.video import VideoStream
 import numpy as np
 import argparse, imutils, time, cv2, os, sys, json
-DEFAULT_RTSP = f"rtsp://127.0.0.1:8888/live.sdp?tcp"
+DEFAULT_RTSP = f"rtsp://127.0.0.1:8554/mystream"
 
 def detect_and_predict_mask(frame, faceNet, maskNet):
     # grab the dimensions of the frame and then construct a blob
