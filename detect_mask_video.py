@@ -1,17 +1,52 @@
 #!/usr/bin/env python3
 
 # import the necessary packages
-import os, sys, json, pathlib, time, random
+import os, sys, json, pathlib, time, random, traceback
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
 from imutils.video import VideoStream
+from lockfile import LockFile
 import numpy as np
 import argparse, imutils, time, cv2, os, sys, json
 DEFAULT_RTSP = f"rtsp://127.0.0.1:8554/mystream"
 SHOW_OUTPUT_FRAMES = True
 SAVE_OUTPUT_FRAMES = False
 SAVE_OUTPUT_FRAMES_DIR = './output_frames'
+
+dat_file = '/tmp/.detect_video.json'
+lock = LockFile(f'{dat_file}.lock')
+
+def trim_dat_file():
+  keep_lines = []
+  with open(dat_file,'r') as f:
+    dat = f.read().splitlines()
+  for d in dat:
+    d = str(d)
+    print(d)
+    continue
+    if not d or d == '':
+      continue
+    try:
+      j = json.loads(d)
+    except Exception as e:
+      j = {}
+    print(j)
+    if (not 'pid' in j.keys()) or (not os.path.exists(f'/proc/{j["pid"]}')):
+      if int(j['pid']) == os.getpid():
+        keep_lines.append(d)
+    else:
+      keep_lines.append(d)
+  print(f'dat={dat}, {keep_lines}, pid={os.getpid()}, ')
+  return
+  s = "\n".join(keep_lines)+"\n"
+  with open(dat_file,'w') as f:
+    f.write('')
+  for l in keep_lines:
+   with open(dat_file,'a') as f:
+    f.write(l+"\n")
+  print(f'wrote {len(keep_lines)} lines to {dat_file}')
+
 
 def detect_and_predict_mask(frame, faceNet, maskNet):
     # grab the dimensions of the frame and then construct a blob
@@ -107,13 +142,22 @@ if args["rtsp"] == "webcam":
     print(f"Binding to webcam")
     vs = VideoStream(src=0).start()
     time.sleep(2.0)
+    STREAM_NAME = 'none'
 else:
     STREAM_NAME = args['rtsp'].split('/')
     STREAM_NAME = STREAM_NAME[len(STREAM_NAME)-1]
     print(f"Binding to {args['rtsp']} => {STREAM_NAME}")
     vs = VideoStream(src=args['rtsp']).start()
 
-print(f"  OK")
+print(f"  OK- acuiring")
+lock.acquire()
+print(f"  Acquired")
+S = {'name':STREAM_NAME,'pid':int(os.getpid()),}
+with open(dat_file,'a') as f:
+ f.write(json.dumps(S)+"\n")
+trim_dat_file()
+lock.release()
+print(f"  REleased")
 
 #sys.exit()
 
