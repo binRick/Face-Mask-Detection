@@ -13,7 +13,7 @@ acquired_ids = []
 DELAY = 0.01
 
 for S in SEARCH_TERMS:
-    max_results = 200
+    max_results = 500
     on = 0
     step = 20
     while on < max_results:
