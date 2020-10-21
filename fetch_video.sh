@@ -3,6 +3,7 @@ set -e
 
 MAX_VIDEO_SIZE=100m
 PROXY="--proxy socks5://127.0.0.1:3001/"
+PROXY=""
 YTARGS="--write-info-json --no-mtime --write-thumbnail $PROXY --exec '$(pwd)/process_video.sh $(pwd)/videos/{}'"
 
 

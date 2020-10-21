@@ -13,3 +13,5 @@ rtsp-simple-server_v0.10.1_darwin_amd64.tar.gz
 .tmp
 *.pyc
 output_frames
+.logs
+.borg
