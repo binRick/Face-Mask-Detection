@@ -7,7 +7,7 @@ get_cmds(){
 }
 
 while read -r cmd; do 
-  eval $cmd &
+  eval $cmd
 done < <(get_cmds)
 
 sleep 10
