@@ -1,7 +1,9 @@
 #!/bin/bash
 
+YTARGS="--write-info-json --no-mtime --write-thumbnail  -q"
+
 get_cmds(){
-  cat youtube_video_ids.txt|xargs -n 2 -I % echo -e "youtube-dl --merge-output-format mkv --max-filesize 500m --limit-rate 2M -o videos/% https://www.youtube.com/watch?v=%"
+  cat youtube_video_ids.txt|xargs -n 2 -I % echo -e "youtube-dl $YTARGS --merge-output-format mkv --max-filesize 500m --limit-rate 2M -o videos/% https://www.youtube.com/watch?v=%"
 }
 
 while read -r cmd; do 

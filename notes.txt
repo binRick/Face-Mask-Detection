@@ -30,3 +30,7 @@ vlc watch stream:
 
 stream to rtsp server:
   youtube-dl -o - "https://www.youtube.com/watch?v=2TTg53aAP8Q" | ffmpeg -re -stream_loop -1 -i - -c copy -f rtsp rtsp://127.0.0.1:8554/fn
+
+>>> from youtubesearchpython import SearchVideos
+>>> search = SearchVideos("mask styles", offset = 1, mode = "json", max_results = 50)
+>>> print(dict(json.loads(search.result()))['search_result'][0])
