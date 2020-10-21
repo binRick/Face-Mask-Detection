@@ -10,7 +10,7 @@ max_results = 2000
 on = 0
 step = 50
 while on < max_results:
-  search = SearchVideos("mask styles", offset = on+1, mode = "json", max_results = on+50)
+  search = SearchVideos("mask styles", offset = on+1, mode = "json", max_results = step)
   for r in dict(json.loads(search.result()))['search_result']:
     mat = (str(r['id']) in get_ids())
     print(r['id'], get_ids(), mat)
