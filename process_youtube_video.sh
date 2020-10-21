@@ -41,6 +41,7 @@ cmd="youtube-dl -o $VIDEO_FILE '$VIDEO_URL'"
 
 [[ -f "$VIDEO_FILE" ]] || eval $cmd
 
+[[ "$DOWNLOAD_ONLY" == "1" ]] && exit 0
 [[ ! -f $VIDEO_FILE && -f "$VIDEO_FILE.webm" ]] && VIDEO_FILE="$VIDEO_FILE.webm"
 [[ ! -f $VIDEO_FILE && -f "$VIDEO_FILE.mp4" ]] && VIDEO_FILE="$VIDEO_FILE.mp4"
 [[ ! -f $VIDEO_FILE && -f "$VIDEO_FILE.mkv" ]] && VIDEO_FILE="$VIDEO_FILE.mkv"

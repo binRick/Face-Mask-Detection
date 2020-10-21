@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # import the necessary packages
-import os, sys, json, pathlib, time
+import os, sys, json, pathlib, time, random
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
@@ -102,12 +102,15 @@ maskNet = load_model(args["model"])
 # initialize the video stream and allow the camera sensor to warm up
 print("[INFO] starting video stream...")
 
+
 if args["rtsp"] == "webcam":
     print(f"Binding to webcam")
     vs = VideoStream(src=0).start()
     time.sleep(2.0)
 else:
-    print(f"Binding to {args['rtsp']}...")
+    STREAM_NAME = args['rtsp'].split('/')
+    STREAM_NAME = STREAM_NAME[len(STREAM_NAME)-1]
+    print(f"Binding to {args['rtsp']} => {STREAM_NAME}")
     vs = VideoStream(src=args['rtsp']).start()
 
 print(f"  OK")
@@ -160,8 +163,17 @@ while True:
         print(f'saving to {save_path}')
         cv2.imwrite(save_path, frame)
 
+
     if SHOW_OUTPUT_FRAMES:
-        cv2.imshow("Frame", frame)
+        random.seed(STREAM_NAME)
+        RAND_X_COL = random.randint(10,100)
+        RAND_Y_COL = random.randint(10,100)
+        MSG = f'=RAND_X_COL={RAND_X_COL}, RAND_Y_COL={RAND_Y_COL},'
+        #print(MSG)
+        WINDOW_X = 100 + (RAND_X_COL * 10)
+        WINDOW_Y = 100 + (RAND_Y_COL * 10)
+        cv2.imshow(STREAM_NAME, frame)
+        cv2.moveWindow(STREAM_NAME, WINDOW_X, WINDOW_Y);
 
     key = cv2.waitKey(1) & 0xFF
 
