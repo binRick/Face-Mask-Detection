@@ -18,7 +18,7 @@ pip freeze | grep -q tensorflow ||  \
                                     pip install -r requirements.txt
 
 uname -a | grep -qi darwin && alias borg="$(pwd)/bin/borg-macosx"
-which borg
+
 export BORG_REPO="$(pwd)/.borg"
 [[ ! -d .borg ]] && borg init -e repokey
 

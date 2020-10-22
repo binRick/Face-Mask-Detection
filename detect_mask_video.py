@@ -6,6 +6,9 @@ from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
 from imutils.video import VideoStream
+from imutils.video import FPS
+from imutils.video.count_frames import count_frames
+
 from lockfile import LockFile
 import numpy as np
 import argparse, imutils, time, cv2, os, sys, json
@@ -139,28 +142,40 @@ maskNet = load_model(args["model"])
 print("[INFO] starting video stream...")
 
 
+FILE_MODE = False
 if args["rtsp"] == "webcam":
     print(f"Binding to webcam")
     vs = VideoStream(src=0).start()
     time.sleep(2.0)
     STREAM_NAME = 'none'
+elif os.path.exists(args["rtsp"]):
+    print(f'opening file')
+    vs = cv2.VideoCapture(args["rtsp"])
+    print(f'opened')
+    fps = FPS().start()
+    print(f'started')
+    #frames_qty = count_frames(args['rtsp'])
+    #print(f'       #{frames_qty}')
+    #sys.exit()
+    STREAM_NAME = os.path.basename(args['rtsp']).split('.')[0]
+    FILE_MODE = True
 else:
     STREAM_NAME = args['rtsp'].split('/')
     STREAM_NAME = STREAM_NAME[len(STREAM_NAME)-1]
-    SAVE_FRAMES_ANALYSIS_DIR = '{}/{}'.format(_SAVE_FRAMES_ANALYSIS_DIR, STREAM_NAME)
     #if not os.path.exists(SAVE_FRAMES_ANALYSIS_DIR):
     #  pathlib.Path(SAVE_FRAMES_ANALYSIS_DIR).mkdir(parents=True)
     print(f"Binding to {args['rtsp']} => {STREAM_NAME}")
     vs = VideoStream(src=args['rtsp']).start()
 
+SAVE_FRAMES_ANALYSIS_DIR = '{}/{}'.format(_SAVE_FRAMES_ANALYSIS_DIR, STREAM_NAME)
 print(f"  OK- acuiring")
-lock.acquire()
+#lock.acquire()
 print(f"  Acquired")
 S = {'name':STREAM_NAME,'pid':int(os.getpid()),}
 with open(dat_file,'a') as f:
  f.write(json.dumps(S)+"\n")
-trim_dat_file()
-lock.release()
+#trim_dat_file()
+#lock.release()
 print(f"  REleased")
 
 #sys.exit()
@@ -171,7 +186,10 @@ while True:
     #print("Waiting for frame..")
     # grab the frame from the threaded video stream and resize it
     # to have a maximum width of 400 pixels
-    frame = vs.read()
+    if FILE_MODE:
+       	(grabbed, frame) = vs.read()
+    else:
+        frame = vs.read()
     FRAME_NUM += 1
     #frame_count = int(vs.get(cv2.CAP_PROP_FRAME_COUNT))
     #print(f'FRAME_NUM={FRAME_NUM}')
