@@ -148,8 +148,8 @@ else:
     STREAM_NAME = args['rtsp'].split('/')
     STREAM_NAME = STREAM_NAME[len(STREAM_NAME)-1]
     SAVE_FRAMES_ANALYSIS_DIR = '{}/{}'.format(_SAVE_FRAMES_ANALYSIS_DIR, STREAM_NAME)
-    if not os.path.exists(SAVE_FRAMES_ANALYSIS_DIR):
-      pathlib.Path(SAVE_FRAMES_ANALYSIS_DIR).mkdir(parents=True)
+    #if not os.path.exists(SAVE_FRAMES_ANALYSIS_DIR):
+    #  pathlib.Path(SAVE_FRAMES_ANALYSIS_DIR).mkdir(parents=True)
     print(f"Binding to {args['rtsp']} => {STREAM_NAME}")
     vs = VideoStream(src=args['rtsp']).start()
 
@@ -223,8 +223,8 @@ while True:
     with open(TF,'a') as f:
       f.write(S+"\n")
 
-    with open(df,'w') as f:
-      f.write(S)
+    #with open(df,'w') as f:
+    #  f.write(S)
 
     if SAVE_OUTPUT_FRAMES:
         save_path = '{}/{}.png'.format(
