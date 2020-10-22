@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # import the necessary packages
-import os, sys, json, pathlib, time, random, traceback
+import os, sys, json, pathlib, time, random, traceback, simplejson
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
@@ -10,9 +10,10 @@ from lockfile import LockFile
 import numpy as np
 import argparse, imutils, time, cv2, os, sys, json
 DEFAULT_RTSP = f"rtsp://127.0.0.1:8554/mystream"
-SHOW_OUTPUT_FRAMES = True
+SHOW_OUTPUT_FRAMES = False
 SAVE_OUTPUT_FRAMES = False
 SAVE_OUTPUT_FRAMES_DIR = './output_frames'
+_SAVE_FRAMES_ANALYSIS_DIR = './analysis_frames'
 
 dat_file = '/tmp/.detect_video.json'
 lock = LockFile(f'{dat_file}.lock')
@@ -146,6 +147,9 @@ if args["rtsp"] == "webcam":
 else:
     STREAM_NAME = args['rtsp'].split('/')
     STREAM_NAME = STREAM_NAME[len(STREAM_NAME)-1]
+    SAVE_FRAMES_ANALYSIS_DIR = '{}/{}'.format(_SAVE_FRAMES_ANALYSIS_DIR, STREAM_NAME)
+    if not os.path.exists(SAVE_FRAMES_ANALYSIS_DIR):
+      pathlib.Path(SAVE_FRAMES_ANALYSIS_DIR).mkdir(parents=True)
     print(f"Binding to {args['rtsp']} => {STREAM_NAME}")
     vs = VideoStream(src=args['rtsp']).start()
 
@@ -160,13 +164,18 @@ lock.release()
 print(f"  REleased")
 
 #sys.exit()
-
+FRAME_NUM = 0
 # loop over the frames from the video stream
 while True:
+    
     #print("Waiting for frame..")
     # grab the frame from the threaded video stream and resize it
     # to have a maximum width of 400 pixels
     frame = vs.read()
+    FRAME_NUM += 1
+    #frame_count = int(vs.get(cv2.CAP_PROP_FRAME_COUNT))
+    #print(f'FRAME_NUM={FRAME_NUM}')
+
     #print(f" read {len(str(frame))} bytes")
     frame = imutils.resize(frame, width=400)
     #print(f" resized to {len(str(frame))} bytes")
@@ -177,24 +186,45 @@ while True:
 
     # loop over the detected face locations and their corresponding
     # locations
+    BOXES = []
+    PREDICTIONS = []
+    LABELS = []
+    COLORS = []
     for (box, pred) in zip(locs, preds):
         # unpack the bounding box and predictions
         (startX, startY, endX, endY) = box
+        BOXES.append(box)
+        PREDICTIONS.append(pred)
         (mask, withoutMask) = pred
 
         # determine the class label and color we'll use to draw
         # the bounding box and text
         label = "Mask" if mask > withoutMask else "No Mask"
         color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
+        COLORS.append(color)
 
         # include the probability in the label
         label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
-
+        LABELS.append(label)
         # display the label and bounding box rectangle on the output
         # frame
         cv2.putText(frame, label, (startX, startY - 10),
             cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
         cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
+
+    df = '{}/{}.json'.format(SAVE_FRAMES_ANALYSIS_DIR, str(FRAME_NUM))
+    TF = '{}-frames.json'.format(SAVE_FRAMES_ANALYSIS_DIR, str(FRAME_NUM))
+    FA = {'FRAME_NUM':FRAME_NUM,'BOXES':len(BOXES),'PREDICTIONS':len(PREDICTIONS),'LABELS':LABELS,'COLORS':COLORS,}
+    try:
+      S = simplejson.dumps(FA)
+    except:
+      S = str(FA)
+
+    with open(TF,'a') as f:
+      f.write(S+"\n")
+
+    with open(df,'w') as f:
+      f.write(S)
 
     if SAVE_OUTPUT_FRAMES:
         save_path = '{}/{}.png'.format(
