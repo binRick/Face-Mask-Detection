@@ -1,25 +1,81 @@
 #!/usr/bin/env python3
+from loguru import logger
 
 # import the necessary packages
-import os, sys, json, pathlib, time, random, traceback, simplejson
+import os, sys, json, pathlib, time, random, traceback, simplejson, cv2
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
 from imutils.video import VideoStream
 from imutils.video import FPS
 from imutils.video.count_frames import count_frames
-
 from lockfile import LockFile
 import numpy as np
 import argparse, imutils, time, cv2, os, sys, json
+
 DEFAULT_RTSP = f"rtsp://127.0.0.1:8554/mystream"
 SHOW_OUTPUT_FRAMES = False
 SAVE_OUTPUT_FRAMES = False
 SAVE_OUTPUT_FRAMES_DIR = './output_frames'
 _SAVE_FRAMES_ANALYSIS_DIR = './analysis_frames'
+RESIZE_IMAGE_WIDTH = 400
 
 dat_file = '/tmp/.detect_video.json'
 lock = LockFile(f'{dat_file}.lock')
+
+last_stats_interval = 0
+now_ts = int(time.time())
+
+new_level = logger.level("SNAKY", no=38, color="<yellow>", icon="🐍")
+
+logger.log("SNAKY", "Here we go!")
+
+def count_frames(path, override=False):
+	# grab a pointer to the video file and initialize the total
+	# number of frames read
+	video = cv2.VideoCapture(path)
+	total = 0
+	# if the override flag is passed in, revert to the manual
+	# method of counting frames
+	if override:
+		total = count_frames_manual(video)
+	# otherwise, let's try the fast way first
+	else:
+		# lets try to determine the number of frames in a video
+		# via video properties; this method can be very buggy
+		# and might throw an error based on your OpenCV version
+		# or may fail entirely based on your which video codecs
+		# you have installed
+		try:
+			# check if we are using OpenCV 3
+			if True: #is_cv3():
+				total = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+			# otherwise, we are using OpenCV 2.4
+			else:
+				total = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_COUNT))
+		# uh-oh, we got an error -- revert to counting manually
+		except:
+			total = count_frames_manual(video)
+	# release the video file pointer
+	video.release()
+	# return the total number of frames in the video
+	return total
+def count_frames_manual(video):
+	# initialize the total number of frames read
+	total = 0
+	# loop over the frames of the video
+	while True:
+		# grab the current frame
+		(grabbed, frame) = video.read()
+	 
+		# check to see if we have reached the end of the
+		# video
+		if not grabbed:
+			break
+		# increment the total number of frames read
+		total += 1
+	# return the total number of frames in the video file
+	return total
 
 def trim_dat_file():
   keep_lines = []
@@ -91,7 +147,10 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
             # extract the face ROI, convert it from BGR to RGB channel
             # ordering, resize it to 224x224, and preprocess it
             face = frame[startY:endY, startX:endX]
-            face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+            try:
+              face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+            except:
+              continue
             face = cv2.resize(face, (224, 224))
             face = img_to_array(face)
             face = preprocess_input(face)
@@ -125,8 +184,14 @@ ap.add_argument("-c", "--confidence", type=float, default=0.5,
     help="minimum probability to filter weak detections")
 ap.add_argument("-r", "--rtsp", type=str, default=DEFAULT_RTSP,
     help="RTSP URI")
+ap.add_argument("-S", "--stats-interval", type=int, default=5,
+    help="Stats Interval")
+ap.add_argument("-F", "--file", type=str, default=None,
+    help="Video File Path")
+ap.add_argument("-d","--debug", action='store_true', default=False,
+    help="Debug Mode")
 args = vars(ap.parse_args())
-
+print(args)
 # load our serialized face detector model from disk
 print("[INFO] loading face detector model...")
 prototxtPath = os.path.sep.join([args["face"], "deploy.prototxt"])
@@ -143,22 +208,28 @@ print("[INFO] starting video stream...")
 
 
 FILE_MODE = False
+fps = None
 if args["rtsp"] == "webcam":
     print(f"Binding to webcam")
     vs = VideoStream(src=0).start()
     time.sleep(2.0)
     STREAM_NAME = 'none'
-elif os.path.exists(args["rtsp"]):
+
+elif args['file'] != None:
     print(f'opening file')
-    vs = cv2.VideoCapture(args["rtsp"])
+    vs = cv2.VideoCapture(args["file"])
     print(f'opened')
-    fps = FPS().start()
+    #fps = FPS().start()
     print(f'started')
     #frames_qty = count_frames(args['rtsp'])
     #print(f'       #{frames_qty}')
     #sys.exit()
-    STREAM_NAME = os.path.basename(args['rtsp']).split('.')[0]
+    STREAM_NAME = os.path.basename(args['file']).split('.')[0]
     FILE_MODE = True
+    frames_qty = count_frames(args["file"])
+    msg = f'        frames_qty={frames_qty}'
+    print(msg)
+    #sys.exit()
 else:
     STREAM_NAME = args['rtsp'].split('/')
     STREAM_NAME = STREAM_NAME[len(STREAM_NAME)-1]
@@ -168,18 +239,43 @@ else:
     vs = VideoStream(src=args['rtsp']).start()
 
 SAVE_FRAMES_ANALYSIS_DIR = '{}/{}'.format(_SAVE_FRAMES_ANALYSIS_DIR, STREAM_NAME)
-print(f"  OK- acuiring")
-#lock.acquire()
-print(f"  Acquired")
-S = {'name':STREAM_NAME,'pid':int(os.getpid()),}
-with open(dat_file,'a') as f:
- f.write(json.dumps(S)+"\n")
-#trim_dat_file()
-#lock.release()
-print(f"  REleased")
+TF = '{}-frames.json'.format(SAVE_FRAMES_ANALYSIS_DIR)
+FRAME_ANALYSIS_JSON_FILE = '{}-frame-analysis.json'.format(SAVE_FRAMES_ANALYSIS_DIR)
+if os.path.exists(TF):
+  os.remove(TF)
 
-#sys.exit()
+def get_frame_analysis():
+  if not os.path.exists(FRAME_ANALYSIS_JSON_FILE):
+    with open(FRAME_ANALYSIS_JSON_FILE,'w') as f:
+      f.write('{}')
+      return get_frame_analysis()
+  else:
+    with open(FRAME_ANALYSIS_JSON_FILE,'r') as f:
+      try:
+        d = json.loads(f.read())
+      except:
+        return {}
+      if type(d) != dict:
+        d = {}
+      return d
+
+def add_frame_analysis(FRAME_NUMBER, ANALYSIS):
+  a = get_frame_analysis()
+  a[FRAME_NUMBER] = ANALYSIS
+  with open(FRAME_ANALYSIS_JSON_FILE,'w') as f:
+    return f.write(json.dumps(a))
+  
+def get_processed_frames():
+ return [int(k) for k in get_frame_analysis().keys() if k]
+
+
+started = time.time()
 FRAME_NUM = 0
+fps_since_stats = 0
+last_stats_frames = None
+last_stats_ts = None
+last_stats_frames_delta = None
+last_stats_fps = None
 # loop over the frames from the video stream
 while True:
     
@@ -190,17 +286,52 @@ while True:
        	(grabbed, frame) = vs.read()
     else:
         frame = vs.read()
+
+
+    frame_read = time.time()
+    frame_delay = frame_read - started
     FRAME_NUM += 1
+    fps_since_start = FRAME_NUM / frame_delay
+    now_ts = int(time.time())
+    dxx = (now_ts - last_stats_interval) 
+    too_old = (dxx > args['stats_interval'])
+    msg = f'last_stats_interval+args["stats_interval"]={last_stats_interval+args["stats_interval"]}, now_ts={now_ts}, dxx={dxx}, too_old={too_old},  '
+    #print(msg)
+    if (last_stats_interval+args["stats_interval"]) < now_ts:
+      if last_stats_frames:
+        last_stats_frames_delta = FRAME_NUM - last_stats_frames
+        last_stats_fps = last_stats_frames_delta / (now_ts - last_stats_interval)
+      msg = f'stats..... fps_since_start={fps_since_start}, frame #:{FRAME_NUM},  last_stats_frames_delta={last_stats_frames_delta}@{last_stats_interval} => {last_stats_fps} '
+      print(msg)
+      x = get_frame_analysis()
+      print(f'    qty={len(x)},    x={type(x)}')
+      last_stats_interval = now_ts
+      last_stats_frames = FRAME_NUM
+      #print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+
+    if FRAME_NUM in get_processed_frames():
+      continue
+
+    #print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+    #print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
     #frame_count = int(vs.get(cv2.CAP_PROP_FRAME_COUNT))
-    #print(f'FRAME_NUM={FRAME_NUM}')
+    #print(f'FRAME_NUM={FRAME_NUM}, fps_since_start={fps_since_start}, ')
 
     #print(f" read {len(str(frame))} bytes")
-    frame = imutils.resize(frame, width=400)
-    #print(f" resized to {len(str(frame))} bytes")
+    try:
+      frame = imutils.resize(frame, width=RESIZE_IMAGE_WIDTH)
+      if args["debug"]:
+        if False:
+          print(f" resized to {len(str(frame))} bytes")
+    except Exception as e:
+      print(f'failed to resize frame: {str(e)}')
+      continue
 
     # detect faces in the frame and determine if they are wearing a
     # face mask or not
     (locs, preds) = detect_and_predict_mask(frame, faceNet, maskNet)
+
+
 
     # loop over the detected face locations and their corresponding
     # locations
@@ -208,6 +339,8 @@ while True:
     PREDICTIONS = []
     LABELS = []
     COLORS = []
+    msg = f'  predictions qty={len(preds)},    '
+    #print(msg)
     for (box, pred) in zip(locs, preds):
         # unpack the bounding box and predictions
         (startX, startY, endX, endY) = box
@@ -231,18 +364,9 @@ while True:
         cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
 
     df = '{}/{}.json'.format(SAVE_FRAMES_ANALYSIS_DIR, str(FRAME_NUM))
-    TF = '{}-frames.json'.format(SAVE_FRAMES_ANALYSIS_DIR, str(FRAME_NUM))
-    FA = {'FRAME_NUM':FRAME_NUM,'BOXES':len(BOXES),'PREDICTIONS':len(PREDICTIONS),'LABELS':LABELS,'COLORS':COLORS,}
-    try:
-      S = simplejson.dumps(FA)
-    except:
-      S = str(FA)
+    FA = {'FRAME_NUM':FRAME_NUM,'LABELS':LABELS,'frame_delay':frame_delay,}
 
-    with open(TF,'a') as f:
-      f.write(S+"\n")
-
-    #with open(df,'w') as f:
-    #  f.write(S)
+    add_frame_analysis(FRAME_NUM, FA, )
 
     if SAVE_OUTPUT_FRAMES:
         save_path = '{}/{}.png'.format(
