@@ -3,6 +3,8 @@ from loguru import logger
 
 # import the necessary packages
 import os, sys, json, pathlib, time, random, traceback, simplejson, cv2
+from threading import Thread
+from queue import Queue
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 from tensorflow.keras.models import load_model
@@ -29,6 +31,40 @@ now_ts = int(time.time())
 new_level = logger.level("SNAKY", no=38, color="<yellow>", icon="🐍")
 
 logger.log("SNAKY", "Here we go!")
+
+class FileVideoStream:
+	def __init__(self, path, queueSize=128):
+		self.stream = cv2.VideoCapture(path)
+		self.stopped = False
+		self.Q = Queue(maxsize=queueSize)
+	def update(self):
+		# keep looping infinitely
+		while True:
+			# if the thread indicator variable is set, stop the
+			# thread
+			if self.stopped:
+				return
+			# otherwise, ensure the queue has room in it
+			if not self.Q.full():
+				# read the next frame from the file
+				(grabbed, frame) = self.stream.read()
+				# if the `grabbed` boolean is `False`, then we have
+				# reached the end of the video file
+				if not grabbed:
+					self.stop()
+					return
+				# add the frame to the queue
+				self.Q.put(frame)
+	def read(self):
+		# return next frame in the queue
+		return self.Q.get()
+	def more(self):
+		# return True if there are still frames in the queue
+		return self.Q.qsize() > 0
+	def stop(self):
+		# indicate that the thread should be stopped
+		self.stopped = True
+
 
 def count_frames(path, override=False):
 	# grab a pointer to the video file and initialize the total
@@ -60,22 +96,7 @@ def count_frames(path, override=False):
 	video.release()
 	# return the total number of frames in the video
 	return total
-def count_frames_manual(video):
-	# initialize the total number of frames read
-	total = 0
-	# loop over the frames of the video
-	while True:
-		# grab the current frame
-		(grabbed, frame) = video.read()
-	 
-		# check to see if we have reached the end of the
-		# video
-		if not grabbed:
-			break
-		# increment the total number of frames read
-		total += 1
-	# return the total number of frames in the video file
-	return total
+
 
 def trim_dat_file():
   keep_lines = []
@@ -310,8 +331,12 @@ while True:
       #print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
 
     if FRAME_NUM in get_processed_frames():
+      #if args["debug"]:
+      #  print("[INFO] skipping Frame # {}".format(FRAME_NUM))
       continue
 
+    #if args["debug"]:
+    #  print("[INFO] processing Frame # {}".format(FRAME_NUM))
     #print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
     #print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
     #frame_count = int(vs.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -324,7 +349,7 @@ while True:
         if False:
           print(f" resized to {len(str(frame))} bytes")
     except Exception as e:
-      print(f'failed to resize frame: {str(e)}')
+      #print(f'failed to resize frame: {str(e)}')
       continue
 
     # detect faces in the frame and determine if they are wearing a
