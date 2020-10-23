@@ -2,7 +2,7 @@
 from loguru import logger
 
 # import the necessary packages
-import os, sys, json, pathlib, time, random, traceback, simplejson, cv2, pprint
+import os, sys, json, pathlib, time, random, traceback, simplejson, cv2, pprint, glob
 from threading import Thread
 from queue import Queue
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
@@ -15,10 +15,11 @@ from lockfile import LockFile
 import numpy as np
 import argparse, imutils, time, cv2, os, sys, json, p_tqdm, shlex, subprocess
 from halo import Halo
+pp = pprint.PrettyPrinter(indent=2)
 
 
 DEFAULT_RTSP = f"rtsp://127.0.0.1:8554/mystream"
-SHOW_OUTPUT_FRAMES = True
+SHOW_OUTPUT_FRAMES = False
 SAVE_OUTPUT_FRAMES = False
 SAVE_OUTPUT_FRAMES_DIR = './output_frames'
 _SAVE_FRAMES_ANALYSIS_DIR = './analysis_frames'
@@ -74,6 +75,83 @@ def get_video_info_json(VIDEO_ID):
       return json.loads(f.read())
 
 
+def get_jsons():
+  return glob.glob(f'./videos/*.info.json')
+
+def get_totals():
+  T = {
+   'duration': 0,
+   'frames': 0,
+   'view_count': 0,
+   'pixels': 0,
+   'detections': 0,
+   'analyzed_frames': 0,
+   'analyzed_videos': 0,
+   'analyzed_seconds': 0,
+   'detection_objects': {
+      'min_dur': {'10':[],},
+   }
+  }
+  videos_qty = 0
+  started_ts = time.time()
+  for j in get_jsons():
+    with open(j,'r') as f:
+      J = json.loads(f.read())
+
+      videos_qty += 1
+      ID = os.path.basename(j).split('.')[0]
+      FRAME_ANALYSIS_JSON_FILE = './analysis_frames/{}-frame-analysis-x{}.json'.format(
+            ID,
+            args['resize_width'],
+      )
+      if not os.path.exists(FRAME_ANALYSIS_JSON_FILE):
+        if args["debug"]:
+          L('STATS',f' skipping {ID}')
+        continue
+      with open(FRAME_ANALYSIS_JSON_FILE,'r') as f:
+        try:
+          dat = json.loads(f.read())
+        except:
+          L('STATS',f' failed to parse json for {ID}')
+          continue
+
+
+      T['analyzed_frames'] += len(dat.keys())
+      analyzed_seconds = int(len(dat.keys()) / J["fps"])
+      T['analyzed_seconds'] += analyzed_seconds
+      T['analyzed_videos'] += 1
+      J['detections']  = 0
+      
+      if(analyzed_seconds > 3099999999):
+        pp.pprint(J)
+        pp.pprint(dat)
+
+      for dk in dat.keys():
+        K = dat[dk]
+        J['detections'] += len(K['LABELS'])
+
+      T['detections'] += J['detections']
+
+
+      #for min_duration in T['detection_objects']['min_dur'].keys():
+      #  for dk in dat.keys():
+      #    K = dat[dk]
+        
+    for tk in T.keys():
+     if tk in J.keys() and tk in ['duration','frames','view_count']:
+       T[tk] += J[tk]
+     if 'fps' in J.keys():
+       frames = int(J['duration'] * J['duration'])
+       T['frames'] += frames
+    T['pixels'] += int(J['width']*J['height'])
+
+  ended_ts = time.time()
+  T['videos_qty'] = videos_qty
+  T['pixels'] = T['pixels'] * T['frames']
+  L('STATS',  f'{type(J)},  {J.keys()},     {T}  ')
+
+
+
 def findVideoMetada(pathToInputVideo):
     cmd = "ffprobe -v quiet -print_format json -show_streams"
     args = shlex.split(cmd)
@@ -84,7 +162,6 @@ def findVideoMetada(pathToInputVideo):
 
     # prints all the metadata available:
     #import pprint
-    #pp = pprint.PrettyPrinter(indent=2)
     #pp.pprint(ffprobeOutput)
 
     # for example, find height and width
@@ -247,8 +324,14 @@ ap.add_argument("-F", "--file", type=str, default=None,
     help="Video File Path")
 ap.add_argument("-d","--debug", action='store_true', default=False,
     help="Debug Mode")
+ap.add_argument("-t","--get-totals", action='store_true', default=False,
+    help="Get Totals")
 args = vars(ap.parse_args())
 L("STATS",  args)
+
+if args['get_totals']:
+  get_totals()
+  sys.exit()
 # load our serialized face detector model from disk
 L("STATS","[INFO] loading face detector model...")
 prototxtPath = os.path.sep.join([args["face"], "deploy.prototxt"])
@@ -493,7 +576,7 @@ while True:
         cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
 
     df = '{}/{}.json'.format(SAVE_FRAMES_ANALYSIS_DIR, str(FRAME_NUM))
-    FA = {'FRAME_NUM':FRAME_NUM,'LABELS':LABELS,'frame_delay':round(frame_delay,2),}
+    FA = {'FRAME_NUM':FRAME_NUM,'LABELS':LABELS,}
 
     add_frame_analysis(FRAME_NUM, FA, )
     

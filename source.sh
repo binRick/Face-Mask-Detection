@@ -23,6 +23,7 @@ export BORG_REPO="$(pwd)/.borg"
 [[ ! -d .borg ]] && borg init -e repokey
 
 
+PROXY=""
 PROXY="--proxy socks5://127.0.0.1:3001/"
 
 export PROXY
