@@ -22,7 +22,6 @@ SHOW_OUTPUT_FRAMES = True
 SAVE_OUTPUT_FRAMES = False
 SAVE_OUTPUT_FRAMES_DIR = './output_frames'
 _SAVE_FRAMES_ANALYSIS_DIR = './analysis_frames'
-RESIZE_IMAGE_WIDTH = 400
 
 dat_file = '/tmp/.detect_video.json'
 lock = LockFile(f'{dat_file}.lock')
@@ -234,6 +233,12 @@ ap.add_argument("-c", "--confidence", type=float, default=0.5,
     help="minimum probability to filter weak detections")
 ap.add_argument("-r", "--rtsp", type=str, default=DEFAULT_RTSP,
     help="RTSP URI")
+ap.add_argument("-X", "--x-offset", type=int, default=0,
+    help="X offset")
+ap.add_argument("-Y", "--y-offset", type=int, default=0,
+    help="Y offset")
+ap.add_argument("-W", "--resize-width", type=int, default=400,
+    help="Resize Image Width. Default 400")
 ap.add_argument("-P", "--fps", type=int, default=1,
     help="Max analysis fps (1 = check 1 image per 30 if the video is 30fps)")
 ap.add_argument("-S", "--stats-interval", type=int, default=5,
@@ -261,7 +266,11 @@ print("[INFO] starting video stream...")
 STREAM_NAME = os.path.basename(args['file']).split('.')[0]
 SAVE_FRAMES_ANALYSIS_DIR = '{}/{}'.format(_SAVE_FRAMES_ANALYSIS_DIR, STREAM_NAME)
 TF = '{}-frames.json'.format(SAVE_FRAMES_ANALYSIS_DIR)
-FRAME_ANALYSIS_JSON_FILE = '{}-frame-analysis.json'.format(SAVE_FRAMES_ANALYSIS_DIR)
+
+FRAME_ANALYSIS_JSON_FILE = '{}-frame-analysis-x{}.json'.format(
+    SAVE_FRAMES_ANALYSIS_DIR,
+    args['resize_width'],
+)
 if os.path.exists(TF):
   os.remove(TF)
 
@@ -385,6 +394,7 @@ last_stats_frames = None
 last_stats_ts = None
 last_stats_frames_delta = None
 last_stats_fps = None
+face_since_last_stats = []
 # loop over the frames from the video stream
 while True:
     if frames_qty and FRAME_NUM > frames_qty:
@@ -417,7 +427,7 @@ while True:
         last_stats_fps = round(last_stats_frames_delta / (now_ts - last_stats_interval), 2)
       msg = f'stats..... fps_since_start={fps_since_start}, frame #:{FRAME_NUM},  last_stats_frames_delta={last_stats_frames_delta}@{last_stats_interval} => {last_stats_fps} '
       x = get_frame_analysis()
-      STATS_MSG = f' #{FRAME_NUM} ::   Processed:{len(PROCESSED_FRAMES)}/{frames_qty} qty={len(x)},   SKIPPED_FRAMES={len(SKIPPED_FRAMES)}, video framerate={video_info["fps"]},  requested analysis rate={args["fps"]},  previously analyzed frame id={last_stats_frames} '
+      STATS_MSG = f' #{FRAME_NUM} ::   Processed:{len(PROCESSED_FRAMES)}/{frames_qty} qty={len(x)},   SKIPPED_FRAMES={len(SKIPPED_FRAMES)}, video framerate={video_info["fps"]},  requested analysis rate={args["fps"]},  previously analyzed frame id={last_stats_frames} ,  file={args["file"]},   face_since_last_stats={face_since_last_stats},     '
       L("STATS",  msg)
       L("STATS",  STATS_MSG)
       last_stats_interval = now_ts
@@ -437,7 +447,7 @@ while True:
 
     #print(f" read {len(str(frame))} bytes")
     try:
-      frame = imutils.resize(frame, width=RESIZE_IMAGE_WIDTH)
+      frame = imutils.resize(frame, width=args['resize_width'])
       if args["debug"]:
         if False:
           print(f" resized to {len(str(frame))} bytes")
@@ -483,9 +493,10 @@ while True:
         cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
 
     df = '{}/{}.json'.format(SAVE_FRAMES_ANALYSIS_DIR, str(FRAME_NUM))
-    FA = {'FRAME_NUM':FRAME_NUM,'LABELS':LABELS,'frame_delay':frame_delay,}
+    FA = {'FRAME_NUM':FRAME_NUM,'LABELS':LABELS,'frame_delay':round(frame_delay,2),}
 
     add_frame_analysis(FRAME_NUM, FA, )
+    
 
     if SAVE_OUTPUT_FRAMES:
         save_path = '{}/{}.png'.format(
@@ -501,8 +512,10 @@ while True:
 
     if SHOW_OUTPUT_FRAMES:
         random.seed(STREAM_NAME)
-        RAND_X_COL = random.randint(10,100)
-        RAND_Y_COL = random.randint(10,100)
+        RAND_X_COL = args['x_offset']
+        RAND_Y_COL = args['y_offset']
+        #RAND_X_COL = random.randint(10,100)
+        #RAND_Y_COL = random.randint(10,100)
         MSG = f'=RAND_X_COL={RAND_X_COL}, RAND_Y_COL={RAND_Y_COL},'
         #print(MSG)
         WINDOW_X = 100 + (RAND_X_COL * 10)
