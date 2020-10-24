@@ -2,7 +2,7 @@
 from loguru import logger
 
 # import the necessary packages
-import os, sys, json, pathlib, time, random, traceback, simplejson, cv2, pprint, glob
+import os, sys, json, pathlib, time, random, traceback, simplejson, cv2, pprint, glob, humanize, datetime, psutil
 from threading import Thread
 from queue import Queue
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
@@ -15,23 +15,22 @@ from lockfile import LockFile
 import numpy as np
 import argparse, imutils, time, cv2, os, sys, json, p_tqdm, shlex, subprocess
 from halo import Halo
+os.environ['VIDEO_PROCESSOR'] = '1'
 pp = pprint.PrettyPrinter(indent=2)
 
-
+DEFAULT_ANALYSIS_FPS = 1
+SPINNER_STREAM = sys.stderr
 DEFAULT_RTSP = f"rtsp://127.0.0.1:8554/mystream"
-SHOW_OUTPUT_FRAMES = False
+DEFAULT_SHOW_OUTPUT_FRAMES = False
 SAVE_OUTPUT_FRAMES = False
 SAVE_OUTPUT_FRAMES_DIR = './output_frames'
+VIDEOS_DIR = './videos'
 _SAVE_FRAMES_ANALYSIS_DIR = './analysis_frames'
 
-dat_file = '/tmp/.detect_video.json'
-lock = LockFile(f'{dat_file}.lock')
-
+TOTALS_PARSE_TIME = {'started':time.time(),}
 last_stats_interval = 0
 now_ts = int(time.time())
-
 new_level = logger.level("STATS", no=38, color="<yellow>", icon="🐍")
-
 L = logger.log
 
 class FileVideoStream:
@@ -67,60 +66,128 @@ class FileVideoStream:
 		# indicate that the thread should be stopped
 		self.stopped = True
 
+
+def get_pids():
+    for pid in psutil.pids():
+    
+      try:
+        p = psutil.Process(pid)
+      except:
+        continue
+      #print(p)
+      my_env_val = os.environ.get('VIDEO_PROCESSOR')
+      try:
+        penv = dict(p.environ())
+      except:
+        continue
+      ENV_MATCH = (  'VIDEO_PROCESSOR' in penv.keys() and penv['VIDEO_PROCESSOR'] == my_env_val )
+      MATCHES = []
+      if ENV_MATCH:
+        MATCHES.append(p.pid)
+      msg = f' my env={my_env_val}, pid {p.pid} env={len(penv.keys())} keys match={ENV_MATCH},  name={p.name()}'
+      #L('STATS',msg)
+    msg = f' matches={len(MATCHES)},  {MATCHES}'
+    L('STATS',msg)
+
+
+
 def get_video_info_json(VIDEO_ID):
+    oVIDEO_ID = VIDEO_ID
+    if '/' in VIDEO_ID and '.' in VIDEO_ID:
+      VIDEO_ID = os.path.basename(VIDEO_ID).split('.')[0]
     if '.' in VIDEO_ID:
       VIDEO_ID = VIDEO_ID.split('.')[0]
-    d = f'{VIDEO_ID}.info.json'
+    d = f'./videos/{VIDEO_ID}.info.json'
+    if len(VIDEO_ID) < 8:
+      m = f'Invalid ID ({VIDEO_ID}). orig VIDEO_ID={oVIDEO_ID}'
+      raise Exception(m)
+      sys.exit(1)
+    if not os.path.exists(d):
+      print(f'path {d} does not exist (get_video_info_json for {VIDEO_ID})')
+      sys.exit(1)
     with open(d,'r') as f:
       return json.loads(f.read())
 
+def get_videos_total_bytes():
+  SUM = 0
+  for v in get_videos():
+    SUM += os.path.getsize(v)
+  return SUM
+
+def get_videos():
+  V =  glob.glob(f'./videos/*.mkv')
+  return V
 
 def get_jsons():
-  return glob.glob(f'./videos/*.info.json')
+  JSONS =  glob.glob(f'./videos/*.info.json')
+  return JSONS
 
+get_totals_spinner = Halo(text='Getting Totals JSON', text_color= 'cyan', color='green', spinner='dots', stream=SPINNER_STREAM)
 def get_totals():
+  get_totals_spinner.start()
+  TB = get_videos_total_bytes()
   T = {
+   'ts': int(time.time()),
    'duration': 0,
+   'total_videos_bytes': int(TB),
+   'total_videos_bytes_human': str(humanize.naturalsize(TB)),
    'frames': 0,
    'view_count': 0,
    'pixels': 0,
    'detections': 0,
    'analyzed_frames': 0,
    'analyzed_videos': 0,
+   'size_bytes': 0,
    'analyzed_seconds': 0,
    'detection_objects': {
       'min_dur': {'10':[],},
    }
   }
+  L('STATS',f'get_videos_total_bytes: {get_videos_total_bytes()}')
   videos_qty = 0
   started_ts = time.time()
-  for j in get_jsons():
+  JSONS = get_jsons()
+  for j in JSONS:
+    get_totals_spinner.color = 'magenta'
+    get_totals_spinner.text_color = 'green'
     with open(j,'r') as f:
       J = json.loads(f.read())
-
       videos_qty += 1
       ID = os.path.basename(j).split('.')[0]
+      get_totals_spinner.text = f'Processed {videos_qty}/{len(JSONS)} videos [{ID}] :: '
+      VIDEO_FILE = './videos/{}.mkv'.format(ID)
+      #video_info = get_video_info_json(VIDEO_FILE)
+      #(video_meta, height, width) = findVideoMetada(VIDEO_FILE)
+      #L('STATS',video_meta)
+      #pp.pprint(video_meta)
+      #L('STATS',ID+' ' + VIDEO_FILE)
+      #L('STATS',video_info.keys())
       FRAME_ANALYSIS_JSON_FILE = './analysis_frames/{}-frame-analysis-x{}.json'.format(
             ID,
             args['resize_width'],
       )
       if not os.path.exists(FRAME_ANALYSIS_JSON_FILE):
-        if args["debug"]:
+        if args["debug"] and False:
           L('STATS',f' skipping {ID}')
+        videos_qty -= 1
         continue
+
       with open(FRAME_ANALYSIS_JSON_FILE,'r') as f:
         try:
           dat = json.loads(f.read())
         except:
           L('STATS',f' failed to parse json for {ID}')
+          os.remove(FRAME_ANALYSIS_JSON_FILE)
+          L('STATS',f' removed {FRAME_ANALYSIS_JSON_FILE}')
+          videos_qty -= 1
           continue
-
 
       T['analyzed_frames'] += len(dat.keys())
       analyzed_seconds = int(len(dat.keys()) / J["fps"])
       T['analyzed_seconds'] += analyzed_seconds
       T['analyzed_videos'] += 1
       J['detections']  = 0
+      T['size_bytes']  += os.path.getsize(VIDEO_FILE)
       
       if(analyzed_seconds > 3099999999):
         pp.pprint(J)
@@ -131,7 +198,6 @@ def get_totals():
         J['detections'] += len(K['LABELS'])
 
       T['detections'] += J['detections']
-
 
       #for min_duration in T['detection_objects']['min_dur'].keys():
       #  for dk in dat.keys():
@@ -144,31 +210,82 @@ def get_totals():
        frames = int(J['duration'] * J['duration'])
        T['frames'] += frames
     T['pixels'] += int(J['width']*J['height'])
+    if args["debug"]:
+      get_totals_spinner.succeed(f'OK- {ID}')
+
 
   ended_ts = time.time()
   T['videos_qty'] = videos_qty
+  T['duration_human'] = humanize.naturaldelta(datetime.timedelta(seconds=T['duration']))
+  T['analyzed_time_human'] = humanize.naturaldelta(datetime.timedelta(seconds=T['analyzed_seconds']))
   T['pixels'] = T['pixels'] * T['frames']
-  L('STATS',  f'{type(J)},  {J.keys()},     {T}  ')
+  T['started_ts'] = int(TOTALS_PARSE_TIME['started'])
+  T['ended_ts'] = int(time.time())
+  T['dur'] = T['ended_ts'] - T['started_ts']
+  T['dur_human'] = humanize.naturaldelta(datetime.timedelta(seconds=T['dur']))
+  T['size_human'] = humanize.naturalsize(T['size_bytes'])
+  PERCENTAGE = round((T['analyzed_seconds'] / T['duration'])*100, 2)
+  ANALYZED_PERCENTAGE = round((int(T['analyzed_videos']) / len(JSONS))*100, 2)
+  T['msg'] = f"Detected {T['detections']} Frames with mask/nomask using {T['analyzed_time_human']} of Video from {int(T['analyzed_videos'])} ({T['size_human']}) Videos Files of the {len(JSONS)} ({T['duration_human']}, {T['total_videos_bytes_human']}, and {int(T['frames'])} Frames) Local Videos in {T['dur_human']}"
+
+  if args["debug"]:
+    L('STATS', T)
+  L('STATS', T['msg'])
+  get_totals_spinner.stop()
+  sys.stderr.write("\n{}\n".format(T['msg']))
+  print(json.dumps(T)+"\n")
+  get_pids()
+  print('exiting.................')
+  sys.exit(0)
 
 
+
+@Halo(text='Converting Video to Desired Frame Rate', text_color= 'yellow', color='green', spinner='dots', stream=SPINNER_STREAM)
+def convert_video_to_fps(VIDEO_FILE, FPS):
+    FPS = int(round(FPS,2))
+    OUT_FILE = f'./videos_fps/{FPS}/{os.path.basename(VIDEO_FILE)}'
+    print(f'convert_video_to_fps.....................                 ')
+    if os.path.exists(OUT_FILE):
+        try:
+          (video_meta, height, width) = findVideoMetada(OUT_FILE)
+          #L('STATS', video_meta)
+          #pp.pprint(video_meta)
+          avg_frame_rate = video_meta['streams'][0]['avg_frame_rate']
+          L('STATS', f'avg_frame_rate={avg_frame_rate}')
+          avg_frame_rate_split = avg_frame_rate.split('/')
+          fps = int(round(int(avg_frame_rate_split[0]) / int(avg_frame_rate_split[1]), 2))
+          L('STATS', f'fps={fps}')
+        except:
+          fps = 0
+        if int(fps) != int(FPS):
+            msg = f'        REMOVING invalid source file {OUT_FILE}         ({fps}!={FPS})'
+            L('STATS', msg)
+            L('STATS', video_meta)
+            #sys.exit()
+            os.remove(OUT_FILE)
+            msg = f'        REMOVED invalid source file {OUT_FILE}'
+            L('STATS', msg)
+
+    cmd = ["command","ffmpeg","-v","quiet","-i",VIDEO_FILE,"-an", "-r", str(int(FPS)),"-vf","scale=400:-2", "-y", OUT_FILE]
+    L('STATS',f'cmd={" ".join(cmd)}')
+    if not os.path.exists(os.path.dirname(OUT_FILE)):
+      pathlib.Path(os.path.dirname(OUT_FILE)).mkdir(parents=True)
+
+    if not os.path.exists(OUT_FILE):
+      result = subprocess.run(cmd, shell=False)
+    L('STATS', f'output file exists = {os.path.exists(OUT_FILE)}')
+    if not os.path.exists(OUT_FILE):
+        sys.exit(9)
+    return OUT_FILE
 
 def findVideoMetada(pathToInputVideo):
-    cmd = "ffprobe -v quiet -print_format json -show_streams"
+    cmd = f"command ffprobe -v quiet -print_format json -show_streams"
     args = shlex.split(cmd)
     args.append(pathToInputVideo)
-    # run the ffprobe process, decode stdout into utf-8 & convert to JSON
     ffprobeOutput = subprocess.check_output(args).decode('utf-8')
     ffprobeOutput = json.loads(ffprobeOutput)
-
-    # prints all the metadata available:
-    #import pprint
-    #pp.pprint(ffprobeOutput)
-
-    # for example, find height and width
     height = ffprobeOutput['streams'][0]['height']
     width = ffprobeOutput['streams'][0]['width']
-    
-    #print(height, width)
     return ffprobeOutput, height, width
 
 def count_frames(path, override=False):
@@ -201,37 +318,6 @@ def count_frames(path, override=False):
 	video.release()
 	# return the total number of frames in the video
 	return total
-
-
-def trim_dat_file():
-  keep_lines = []
-  with open(dat_file,'r') as f:
-    dat = f.read().splitlines()
-  for d in dat:
-    d = str(d)
-    print(d)
-    continue
-    if not d or d == '':
-      continue
-    try:
-      j = json.loads(d)
-    except Exception as e:
-      j = {}
-    print(j)
-    if (not 'pid' in j.keys()) or (not os.path.exists(f'/proc/{j["pid"]}')):
-      if int(j['pid']) == os.getpid():
-        keep_lines.append(d)
-    else:
-      keep_lines.append(d)
-  print(f'dat={dat}, {keep_lines}, pid={os.getpid()}, ')
-  return
-  s = "\n".join(keep_lines)+"\n"
-  with open(dat_file,'w') as f:
-    f.write('')
-  for l in keep_lines:
-   with open(dat_file,'a') as f:
-    f.write(l+"\n")
-  print(f'wrote {len(keep_lines)} lines to {dat_file}')
 
 
 def detect_and_predict_mask(frame, faceNet, maskNet):
@@ -316,22 +402,27 @@ ap.add_argument("-Y", "--y-offset", type=int, default=0,
     help="Y offset")
 ap.add_argument("-W", "--resize-width", type=int, default=400,
     help="Resize Image Width. Default 400")
-ap.add_argument("-P", "--fps", type=int, default=1,
-    help="Max analysis fps (1 = check 1 image per 30 if the video is 30fps)")
+ap.add_argument("-P", "--fps", type=int, default=int(DEFAULT_ANALYSIS_FPS),
+    help=f"Max analysis fps (1 = check 1 image per 30 if the video is 30fps).  Default={DEFAULT_ANALYSIS_FPS}")
 ap.add_argument("-S", "--stats-interval", type=int, default=5,
     help="Stats Interval")
 ap.add_argument("-F", "--file", type=str, default=None,
     help="Video File Path")
+ap.add_argument("-s","--show", action='store_true', default=DEFAULT_SHOW_OUTPUT_FRAMES,
+    help=f"Show Mode (default {DEFAULT_SHOW_OUTPUT_FRAMES}")
+ap.add_argument("-H","--hide", action='store_true', default=False,
+    help=f"Hide Mode (default {False}")
 ap.add_argument("-d","--debug", action='store_true', default=False,
     help="Debug Mode")
 ap.add_argument("-t","--get-totals", action='store_true', default=False,
     help="Get Totals")
 args = vars(ap.parse_args())
-L("STATS",  args)
+#L("STATS",  args)
 
 if args['get_totals']:
   get_totals()
   sys.exit()
+
 # load our serialized face detector model from disk
 L("STATS","[INFO] loading face detector model...")
 prototxtPath = os.path.sep.join([args["face"], "deploy.prototxt"])
@@ -350,9 +441,10 @@ STREAM_NAME = os.path.basename(args['file']).split('.')[0]
 SAVE_FRAMES_ANALYSIS_DIR = '{}/{}'.format(_SAVE_FRAMES_ANALYSIS_DIR, STREAM_NAME)
 TF = '{}-frames.json'.format(SAVE_FRAMES_ANALYSIS_DIR)
 
-FRAME_ANALYSIS_JSON_FILE = '{}-frame-analysis-x{}.json'.format(
+FRAME_ANALYSIS_JSON_FILE = '{}-frame-analysis-{}x-@{}fps.json'.format(
     SAVE_FRAMES_ANALYSIS_DIR,
     args['resize_width'],
+    args['fps'],
 )
 if os.path.exists(TF):
   os.remove(TF)
@@ -379,7 +471,7 @@ def add_frame_analysis(FRAME_NUMBER, ANALYSIS):
   a = get_frame_analysis()
   a[FRAME_NUMBER] = ANALYSIS
   with open(FRAME_ANALYSIS_JSON_FILE,'w') as f:
-    return f.write(json.dumps(a))
+    return f.write(simplejson.dumps(a))
   
 def get_processed_frames():
  return [int(k) for k in get_frame_analysis().keys() if k]
@@ -410,7 +502,23 @@ elif args['file'] != None:
     vs = cv2.VideoCapture(args["file"])
     vs.set(cv2.CAP_PROP_POS_FRAMES, FRAME_RATE_START_OFFSET)
     video_file_fps = vs.get(cv2.CAP_PROP_FPS)
-    L('STATS',    f'      {video_file_fps}xfps      ')
+    SRC_FILE_BYTES = os.path.getsize(args["file"])
+    requested_fps_ok = False
+    print(f'      before conversion working with {video_file_fps}')
+    if (  int(round(video_file_fps,2)) == int(round(args['fps'],2)) ):
+        requested_fps_ok = True
+    L('STATS',    f'      {video_file_fps}xfps   requested={args["fps"]}       requested_fps_ok={requested_fps_ok},    src_file_bytes={SRC_FILE_BYTES}  ')
+    VIDEO_FILE_PATH = convert_video_to_fps(args["file"], int(round(args['fps'])))
+    args['file'] = VIDEO_FILE_PATH
+    print(f'kkkkkkk                  VIDEO_FILE_PATH={VIDEO_FILE_PATH}')
+
+    print(f'opening file')
+    vs = cv2.VideoCapture(args["file"])
+    vs.set(cv2.CAP_PROP_POS_FRAMES, FRAME_RATE_START_OFFSET)
+    video_file_fps = vs.get(cv2.CAP_PROP_FPS)
+    print(f'       after conversion working with {video_file_fps}')
+
+    #sys.exit()
 
     #vs.set(cv2.CAP_PROP_FPS, 1)
     FH = vs.get(cv2.CAP_PROP_FRAME_HEIGHT)
@@ -536,8 +644,11 @@ while True:
           print(f" resized to {len(str(frame))} bytes")
       #L('STATS', f" resized to {len(str(frame))} bytes")
     except Exception as e:
+      print(f'. {e}                    file={args["file"]},           ')
+      if " object has no attribute 'shape'" in str(e):
+        break
       L('STATS', f'failed to resize frame: {str(e)}')
-      continue
+      break
 
     # detect faces in the frame and determine if they are wearing a
     # face mask or not
@@ -556,7 +667,7 @@ while True:
     for (box, pred) in zip(locs, preds):
         # unpack the bounding box and predictions
         (startX, startY, endX, endY) = box
-        BOXES.append(box)
+        BOXES.append([startX, startY, endX, endY])
         PREDICTIONS.append(pred)
         (mask, withoutMask) = pred
 
@@ -575,9 +686,10 @@ while True:
             cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
         cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
 
-    df = '{}/{}.json'.format(SAVE_FRAMES_ANALYSIS_DIR, str(FRAME_NUM))
-    FA = {'FRAME_NUM':FRAME_NUM,'LABELS':LABELS,}
 
+    df = '{}/{}.json'.format(SAVE_FRAMES_ANALYSIS_DIR, str(FRAME_NUM))
+    FA = {'FRAME_NUM':FRAME_NUM,'LABELS':LABELS,}           #'BOXES':BOXES,}
+    #print(FA)
     add_frame_analysis(FRAME_NUM, FA, )
     
 
@@ -593,7 +705,7 @@ while True:
         cv2.imwrite(save_path, frame)
 
 
-    if SHOW_OUTPUT_FRAMES:
+    if args['show']:
         random.seed(STREAM_NAME)
         RAND_X_COL = args['x_offset']
         RAND_Y_COL = args['y_offset']
@@ -603,6 +715,15 @@ while True:
         #print(MSG)
         WINDOW_X = 100 + (RAND_X_COL * 10)
         WINDOW_Y = 100 + (RAND_Y_COL * 10)
+
+        BG_RECTANGLE = {'start_x':20,'start_y':7,'end_x':190,'end_y':40}
+        cv2.rectangle(frame, (BG_RECTANGLE['start_x'], BG_RECTANGLE['start_x']), (BG_RECTANGLE['end_x'], BG_RECTANGLE['end_y']),  (255, 255, 255), -1)
+        #cv2.rectangle(frame, (20, 30), (150, 80),  (255, 255, 0), 2)
+        TEXT_TITLE = "{ID}".format(
+            ID=os.path.basename(args['file']).split('.')[0],
+        )
+        cv2.putText(frame, TEXT_TITLE, (BG_RECTANGLE['start_x'], 30),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 0, 0), 2)
         cv2.imshow(STREAM_NAME, frame)
         cv2.moveWindow(STREAM_NAME, WINDOW_X, WINDOW_Y);
 

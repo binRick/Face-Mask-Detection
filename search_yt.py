@@ -2,7 +2,7 @@
 import os, json, sys, time
 from youtubesearchpython import SearchVideos
 
-SEARCH_TERMS = ['mask styles','how to wear mask','face mask','facemask','n95 mask','my mask']
+SEARCH_TERMS = ['why wear mask','mask safety','mask rules','mask guidelines','mask laws']
 ids_file = 'youtube_video_ids.txt'
 
 def get_ids():

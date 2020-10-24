@@ -12,3 +12,5 @@ streamlit
 imgcat==0.5.0
 j2cli==0.3.10
 lockfile==0.12.2
+humanize==3.1.0
+psutil==5.7.2
